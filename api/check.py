@@ -26,7 +26,7 @@ class handler(BaseHTTPRequestHandler):
         if not monitor.usando_redis():
             self._responde(500, {
                 "ok": False,
-                "erro": "defina UPSTASH_REDIS_REST_URL e UPSTASH_REDIS_REST_TOKEN no projeto",
+                "erro": "faltam as variaveis do Redis: UPSTASH_REDIS_REST_URL/TOKEN ou KV_REST_API_URL/TOKEN",
             })
             return
 

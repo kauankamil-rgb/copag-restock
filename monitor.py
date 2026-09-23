@@ -129,15 +129,28 @@ def load_targets():
 STATE_KEY = os.environ.get("STATE_KEY", "restock:state")
 
 
+# A integracao do Upstash injeta UPSTASH_REDIS_REST_*; a de KV da Vercel injeta
+# KV_REST_API_*. Aceitamos os dois para o setup nao depender de qual foi usada.
+REDIS_URL_VARS = ("UPSTASH_REDIS_REST_URL", "KV_REST_API_URL", "REDIS_REST_URL")
+REDIS_TOKEN_VARS = ("UPSTASH_REDIS_REST_TOKEN", "KV_REST_API_TOKEN", "REDIS_REST_TOKEN")
+
+
+def _env_primeiro(nomes):
+    for n in nomes:
+        if os.environ.get(n):
+            return os.environ[n]
+    return None
+
+
 def usando_redis():
-    return bool(os.environ.get("UPSTASH_REDIS_REST_URL") and os.environ.get("UPSTASH_REDIS_REST_TOKEN"))
+    return bool(_env_primeiro(REDIS_URL_VARS) and _env_primeiro(REDIS_TOKEN_VARS))
 
 
 def _redis(path, body=None):
-    url = os.environ["UPSTASH_REDIS_REST_URL"].rstrip("/") + path
+    url = _env_primeiro(REDIS_URL_VARS).rstrip("/") + path
     req = urllib.request.Request(
         url, data=body,
-        headers={"Authorization": "Bearer " + os.environ["UPSTASH_REDIS_REST_TOKEN"]},
+        headers={"Authorization": "Bearer " + _env_primeiro(REDIS_TOKEN_VARS)},
     )
     with urllib.request.urlopen(req, timeout=20) as resp:
         return json.loads(resp.read().decode("utf-8")).get("result")
