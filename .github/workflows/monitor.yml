@@ -1,0 +1,49 @@
+name: Monitor estoque Copag B2B
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # checagem a cada 5 min (mínimo do GitHub Actions)
+    - cron: '0 6 * * 1'     # heartbeat semanal: impede o GitHub de desativar o cron por inatividade
+  workflow_dispatch:         # permite rodar na mão pelo site
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monitor-estoque
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checar estoque e alertar
+        if: github.event.schedule != '0 6 * * 1'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          COPAG_CATEGORY: pokemon
+        run: python3 monitor.py
+
+      - name: Heartbeat semanal
+        if: github.event.schedule == '0 6 * * 1'
+        run: date -u +"%Y-%m-%dT%H:%M:%SZ" > .heartbeat
+
+      - name: Gravar mudanças de estoque
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet -- state.json .heartbeat; then
+            echo "sem mudança de estoque"
+            exit 0
+          fi
+          git add state.json .heartbeat
+          git commit -m "estoque: atualiza snapshot [skip ci]"
+          for i in 1 2 3; do
+            git pull --rebase --autostash && git push && exit 0
+            sleep 5
+          done
+          echo "falha ao enviar o snapshot" >&2
+          exit 1
