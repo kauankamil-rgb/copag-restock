@@ -1,0 +1,125 @@
+{
+  "category": "pokemon",
+  "skus": {
+    "1829": {
+      "name": "Box Pokémon Infernape V",
+      "qty": 0,
+      "price": 119.99
+    },
+    "2121": {
+      "name": "Baralho De Batalha Deluxe Pokémon TCG Ninetales Ex",
+      "qty": 0,
+      "price": 99.99
+    },
+    "2313": {
+      "name": "Box Display Pokémon Escarlate e Violeta 10 Rivais Predestinados",
+      "qty": 0,
+      "price": 349.99
+    },
+    "2539": {
+      "name": "Box Display Pokémon ME04 Caos Ascendente",
+      "qty": 0,
+      "price": 449.99
+    },
+    "2540": {
+      "name": "Blister Unitário Pokémon ME04 Caos Ascendente",
+      "qty": 10000,
+      "price": 13.99
+    },
+    "2541": {
+      "name": "Combo de Booster Pokémon ME04 Caos Ascendente",
+      "qty": 0,
+      "price": 250.99
+    },
+    "2542": {
+      "name": "Blister Triplo Pokémon ME04 Caos Ascendente",
+      "qty": 0,
+      "price": 42.99
+    },
+    "2544": {
+      "name": "Treinador Avançado Pokémon ME04 Caos Ascendente",
+      "qty": 0,
+      "price": 399.99
+    },
+    "2548": {
+      "name": "Box Pokémon Coleção Mega Zygarde Ex",
+      "qty": 0,
+      "price": 179.99
+    },
+    "2555": {
+      "name": "Box Pokémon Coleção Mega Luar Mega Gengar",
+      "qty": 0,
+      "price": 139.99
+    },
+    "2556": {
+      "name": "Box Pokémon Coleção Parceiro Inicial - Série 2",
+      "qty": 0,
+      "price": 99.99
+    },
+    "2573": {
+      "name": "Blister Unitário Pokémon ME05 Escuridão Absoluta",
+      "qty": 10000,
+      "price": 13.99
+    },
+    "2575": {
+      "name": "Blister Quadrúplo Pokémon ME05 Escuridão Absoluta",
+      "qty": 10000,
+      "price": 55.99
+    },
+    "2576": {
+      "name": "Combo de Booster Pokémon ME05 Escuridão Absoluta",
+      "qty": 0,
+      "price": 250.99
+    },
+    "2578": {
+      "name": "Treinador Avançado Pokémon ME05 Escuridão Absoluta",
+      "qty": 0,
+      "price": 399.99
+    },
+    "2579": {
+      "name": "Box Pokémon Coleção Mega Greninja EX",
+      "qty": 0,
+      "price": 179.99
+    },
+    "2602": {
+      "name": "Pokémon Celebração de 30 Anos - Blister Duplo com Moeda",
+      "qty": 0,
+      "price": 69.99
+    },
+    "2603": {
+      "name": "Pokémon Celebração de 30 anos – Blister Triplo com Adesivo Lucario",
+      "qty": 0,
+      "price": 99.99
+    },
+    "2604": {
+      "name": "Pokémon Celebração de 30 anos – Blister Triplo com Adesivo Exeggutor",
+      "qty": 0,
+      "price": 99.99
+    },
+    "2605": {
+      "name": "Pokémon Celebração de 30 Anos - Treinador Avançado",
+      "qty": 0,
+      "price": 399.99
+    },
+    "2606": {
+      "name": "Pokémon Celebração de 30 Anos - Box Coleção com Pôster",
+      "qty": 0,
+      "price": 115.99
+    },
+    "2607": {
+      "name": "Pokémon Celebração de 30 Anos - Box Coleção com Fichario",
+      "qty": 0,
+      "price": 230.99
+    },
+    "2608": {
+      "name": "Pokémon Celebração de 30 anos – Box Ex Greninja",
+      "qty": 0,
+      "price": 169.99
+    },
+    "2609": {
+      "name": "Pokémon Celebração de 30 anos – Box Ex Sylveon",
+      "qty": 0,
+      "price": 169.99
+    }
+  }
+}
