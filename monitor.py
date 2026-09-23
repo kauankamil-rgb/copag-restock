@@ -122,12 +122,49 @@ def load_targets():
     return [t for t in alvos if t.get("enabled", True)]
 
 
-def load_state():
+# --- estado -----------------------------------------------------------------
+# Local e no GitHub Actions o snapshot mora em state.json. Na Vercel a funcao
+# e stateless e sem disco, entao o mesmo snapshot vai para o Redis do Upstash.
+
+STATE_KEY = os.environ.get("STATE_KEY", "restock:state")
+
+
+def usando_redis():
+    return bool(os.environ.get("UPSTASH_REDIS_REST_URL") and os.environ.get("UPSTASH_REDIS_REST_TOKEN"))
+
+
+def _redis(path, body=None):
+    url = os.environ["UPSTASH_REDIS_REST_URL"].rstrip("/") + path
+    req = urllib.request.Request(
+        url, data=body,
+        headers={"Authorization": "Bearer " + os.environ["UPSTASH_REDIS_REST_TOKEN"]},
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        return json.loads(resp.read().decode("utf-8")).get("result")
+
+
+def _read_raw():
+    if usando_redis():
+        raw = _redis("/get/" + urllib.parse.quote(STATE_KEY))
+        return json.loads(raw) if raw else {}
     try:
         with open(STATE_FILE, encoding="utf-8") as fh:
-            s = json.load(fh)
+            return json.load(fh)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
+
+
+def _write_raw(payload):
+    blob = json.dumps(payload, ensure_ascii=False, indent=2)
+    if usando_redis():
+        _redis("/set/" + urllib.parse.quote(STATE_KEY), body=blob.encode("utf-8"))
+        return
+    with open(STATE_FILE, "w", encoding="utf-8") as fh:
+        fh.write(blob + "\n")
+
+
+def load_state():
+    s = _read_raw()
     # Migra o formato antigo (alvo unico) para o multi-alvo, sem gerar alerta falso.
     if "skus" in s and "targets" not in s:
         return {"copag-pokemon": s["skus"]}
@@ -135,10 +172,7 @@ def load_state():
 
 
 def save_state(estados):
-    payload = {"targets": {k: dict(sorted(v.items())) for k, v in sorted(estados.items())}}
-    with open(STATE_FILE, "w", encoding="utf-8") as fh:
-        json.dump(payload, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
+    _write_raw({"targets": {k: dict(sorted(v.items())) for k, v in sorted(estados.items())}})
 
 
 def send_telegram(text):
@@ -166,9 +200,67 @@ def money(value, cur="R$"):
     return txt.replace(".", ",") if cur == "R$" else txt
 
 
+def run(alvos, dry_run=False, listar=False):
+    """Executa os alvos. Devolve (linhas_de_log, numero_de_falhas)."""
+    estados = load_state()
+    log, falhas = [], 0
+
+    for t in alvos:
+        label = t.get("label", t["id"])
+        try:
+            atual = ADAPTERS[t["adapter"]](t)
+        except Exception as err:  # noqa: BLE001 - um alvo quebrado nao derruba os outros
+            log.append("[erro] %s: %s" % (label, err))
+            falhas += 1
+            continue
+
+        if not atual:
+            log.append("[erro] %s: catalogo vazio - estado preservado" % label)
+            falhas += 1
+            continue
+
+        if listar:
+            log.append("\n## %s (%d SKUs)" % (label, len(atual)))
+            for sku, d in sorted(atual.items(), key=lambda kv: kv[1]["name"]):
+                log.append("%s %6d  %11s  %s" % ("OK " if d["qty"] else "OFF", d["qty"],
+                                                 money(d["price"], d["cur"]), d["name"][:60]))
+            continue
+
+        prev = estados.get(t["id"], {})
+        first_run = not prev
+
+        restock = [(s, d) for s, d in atual.items() if d["qty"] > 0 and s in prev and prev[s].get("qty", 0) <= 0]
+        novos = [(s, d) for s, d in atual.items() if d["qty"] > 0 and s not in prev]
+        zerou = [s for s, d in atual.items() if d["qty"] <= 0 and prev.get(s, {}).get("qty", 0) > 0]
+
+        log.append("%s | skus=%d disponiveis=%d restock=%d novos=%d zerou=%d"
+                   % (label, len(atual), sum(1 for d in atual.values() if d["qty"] > 0),
+                      len(restock), len(novos), len(zerou)))
+
+        if first_run:
+            log.append("  primeira execucao deste alvo: estado gravado, sem alertas")
+        else:
+            for tag, grupo in (("🔥 VOLTOU AO ESTOQUE", restock), ("🆕 PRODUTO NOVO DISPONÍVEL", novos)):
+                for sku, d in grupo[:MAX_ALERTS_POR_ALVO]:
+                    qtd = "%s un." % d["qty"] if d["qty"] > 1 else "sim"
+                    msg = ("%s\n\n<b>%s</b>\n<i>%s</i>\n\nPreço: <b>%s</b>\nDisponível: %s\n\n"
+                           '<a href="%s">Abrir na loja</a>'
+                           % (tag, d["name"], label, money(d["price"], d["cur"]), qtd, d["url"]))
+                    log.append("  ALERTA: %s | %s" % (tag, d["name"]))
+                    if not dry_run:
+                        send_telegram(msg)
+
+        estados[t["id"]] = {s: {"name": d["name"], "qty": d["qty"], "price": d["price"]}
+                            for s, d in atual.items()}
+
+    if not listar and not dry_run:
+        save_state(estados)
+    return log, falhas
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--dry-run", action="store_true", help="nao envia Telegram nem grava state.json")
+    ap.add_argument("--dry-run", action="store_true", help="nao envia Telegram nem grava o estado")
     ap.add_argument("--list", action="store_true", help="imprime o estoque atual e sai")
     ap.add_argument("--test-alert", action="store_true", help="envia uma mensagem de teste no Telegram")
     ap.add_argument("--target", help="roda apenas o alvo com este id")
@@ -185,55 +277,8 @@ def main():
         if not alvos:
             raise SystemExit("alvo '%s' nao encontrado em targets.json" % args.target)
 
-    estados = load_state()
-    falhas = 0
-
-    for t in alvos:
-        label = t.get("label", t["id"])
-        try:
-            atual = ADAPTERS[t["adapter"]](t)
-        except Exception as err:  # noqa: BLE001 - um alvo quebrado nao derruba os outros
-            print("[erro] %s: %s" % (label, err), file=sys.stderr)
-            falhas += 1
-            continue
-
-        if not atual:
-            print("[erro] %s: catalogo vazio - estado preservado" % label, file=sys.stderr)
-            falhas += 1
-            continue
-
-        if args.list:
-            print("\n## %s (%d SKUs)" % (label, len(atual)))
-            for sku, d in sorted(atual.items(), key=lambda kv: kv[1]["name"]):
-                print("%s %6d  %11s  %s" % ("OK " if d["qty"] else "OFF", d["qty"], money(d["price"], d["cur"]), d["name"][:60]))
-            continue
-
-        prev = estados.get(t["id"], {})
-        first_run = not prev
-
-        restock = [(s, d) for s, d in atual.items() if d["qty"] > 0 and s in prev and prev[s].get("qty", 0) <= 0]
-        novos = [(s, d) for s, d in atual.items() if d["qty"] > 0 and s not in prev]
-        zerou = [s for s, d in atual.items() if d["qty"] <= 0 and prev.get(s, {}).get("qty", 0) > 0]
-
-        print("%s | skus=%d disponiveis=%d restock=%d novos=%d zerou=%d"
-              % (label, len(atual), sum(1 for d in atual.values() if d["qty"] > 0), len(restock), len(novos), len(zerou)))
-
-        if first_run:
-            print("  primeira execucao deste alvo: estado gravado, sem alertas")
-        else:
-            for tag, grupo in (("🔥 VOLTOU AO ESTOQUE", restock), ("🆕 PRODUTO NOVO DISPONÍVEL", novos)):
-                for sku, d in grupo[:MAX_ALERTS_POR_ALVO]:
-                    qtd = "%s un." % d["qty"] if d["qty"] > 1 else "sim"
-                    msg = ("%s\n\n<b>%s</b>\n<i>%s</i>\n\nPreço: <b>%s</b>\nDisponível: %s\n\n"
-                           '<a href="%s">Abrir na loja</a>' % (tag, d["name"], label, money(d["price"], d["cur"]), qtd, d["url"]))
-                    print("  ALERTA: %s | %s" % (tag, d["name"]))
-                    if not args.dry_run:
-                        send_telegram(msg)
-
-        estados[t["id"]] = {s: {"name": d["name"], "qty": d["qty"], "price": d["price"]} for s, d in atual.items()}
-
-    if not args.list and not args.dry_run:
-        save_state(estados)
+    log, falhas = run(alvos, dry_run=args.dry_run, listar=args.list)
+    print("\n".join(log))
     return 1 if falhas else 0
 
 

@@ -75,10 +75,36 @@ Campos: `id` (chave do estado, não mude depois), `label` (aparece no alerta), `
 Loja em outra plataforma precisa de um adapter novo: uma função que recebe o alvo e devolve
 `{sku: {name, qty, price, url, cur}}`. O resto do fluxo não muda.
 
+## Rodar na Vercel (1 min, precisa de plano Pro)
+
+O GitHub Actions checa a cada 5 min e atrasa em horário de pico. No plano Pro da Vercel
+o cron roda **a cada minuto, dentro do minuto marcado**. O mesmo `monitor.py` serve os dois:
+`api/check.py` só embrulha o núcleo num endpoint.
+
+Como a função roda sem disco, o snapshot sai do `state.json` e vai para o Redis.
+
+1. Crie o projeto apontando para este repo (framework: *Other*).
+2. Adicione a integração **Upstash Redis** pelo marketplace da Vercel — ela injeta
+   `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` sozinha.
+3. Cadastre as variáveis de ambiente:
+   - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+   - `CRON_SECRET` — string aleatória de 16+ caracteres. A Vercel a envia como
+     `Authorization: Bearer <valor>` e o endpoint recusa qualquer requisição sem ela.
+4. Deploy. O `vercel.json` já registra o cron `* * * * *` em `/api/check`.
+5. **Desligue o cron do GitHub Actions** (deixe só `workflow_dispatch`), senão os dois
+   rodam em paralelo com estados separados e você recebe cada alerta duas vezes.
+
+Sem as variáveis do Upstash o endpoint responde 500 com a mensagem do que falta, em vez
+de tentar escrever num filesystem read-only.
+
 ## Limitações conhecidas
 
-- O cron do GitHub Actions é **best effort**: em horário de pico a execução pode atrasar
-  alguns minutos. Na prática o alerta chega em 5–15 min após o restock.
+- Agendador nenhum é garantido. O cron do GitHub Actions é **best effort** e atrasa em
+  horário de pico (alerta em 5–15 min). O da Vercel respeita o minuto, mas a própria
+  documentação avisa que uma invocação pode ser perdida por erro de rede transitório,
+  ou disparada em duplicidade. Restocks curtos podem escapar nos dois.
+- Restocks observados nessa loja duraram **menos de 7 minutos**. Dimensione o intervalo
+  com isso em mente.
 - A loja reporta `10000` como quantidade para itens em estoque — é um teto do VTEX,
   não o estoque literal. O que importa aqui é `0` vs `> 0`.
 - O estoque é o da vitrine pública. Preço e disponibilidade finais podem variar conforme
