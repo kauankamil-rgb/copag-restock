@@ -33,16 +33,20 @@ jobs:
 
       - name: Gravar mudanças de estoque
         run: |
+          set -u
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if git diff --quiet -- state.json .heartbeat; then
+          git add -A state.json .heartbeat
+          if git diff --cached --quiet; then
             echo "sem mudança de estoque"
             exit 0
           fi
-          git add state.json .heartbeat
           git commit -m "estoque: atualiza snapshot [skip ci]"
           for i in 1 2 3; do
-            git pull --rebase --autostash && git push && exit 0
+            if git pull --rebase --autostash && git push; then
+              echo "snapshot enviado"
+              exit 0
+            fi
             sleep 5
           done
           echo "falha ao enviar o snapshot" >&2
