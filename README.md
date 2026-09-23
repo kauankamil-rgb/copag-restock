@@ -44,11 +44,36 @@ python3 monitor.py             # execução normal
 
 Sem dependências: só Python 3 da própria máquina.
 
-## Monitorar outra categoria
+## Monitorar mais lojas
 
-A categoria vem da variável `COPAG_CATEGORY` (padrão `pokemon`), que é o slug da URL da loja.
-Para vigiar `/baralhos`, troque o valor no `env:` do workflow para `baralhos`. Um snapshot serve
-uma categoria por vez — para acompanhar várias, duplique o job com um `state.json` separado.
+Cada loja vigiada é um alvo em `targets.json`. Adicione um objeto e pronto — o `state.json`
+guarda os alvos separadamente e um alvo que falha não derruba nem apaga os outros.
+
+```json
+[
+  { "id": "copag-pokemon", "label": "Copag B2B — Pokémon",
+    "adapter": "vtex", "store": "https://www.b2b.copagloja.com.br", "category": "pokemon" },
+
+  { "id": "copag-baralhos", "label": "Copag B2B — Baralhos",
+    "adapter": "vtex", "store": "https://www.b2b.copagloja.com.br", "category": "baralhos" },
+
+  { "id": "loja-x", "label": "Loja X — Cartas",
+    "adapter": "shopify", "store": "https://loja-x.com", "collection": "pokemon", "currency": "US$" }
+]
+```
+
+Campos: `id` (chave do estado, não mude depois), `label` (aparece no alerta), `adapter`,
+`store`, e `category` (VTEX) ou `collection` (Shopify, opcional — sem ela varre a loja toda).
+`currency` é o símbolo exibido no preço (padrão `R$`) e `enabled: false` desliga um alvo sem removê-lo.
+
+### Adapters disponíveis
+
+- **`vtex`** — qualquer loja VTEX, via API pública de Intelligent Search. Traz a quantidade real.
+- **`shopify`** — qualquer loja Shopify, via `products.json`. O Shopify só expõe o booleano
+  `available`, então a quantidade aparece como 1/0 — suficiente para detectar a virada.
+
+Loja em outra plataforma precisa de um adapter novo: uma função que recebe o alvo e devolve
+`{sku: {name, qty, price, url, cur}}`. O resto do fluxo não muda.
 
 ## Limitações conhecidas
 

@@ -1,0 +1,9 @@
+[
+  {
+    "id": "copag-pokemon",
+    "label": "Copag B2B — Pokémon",
+    "adapter": "vtex",
+    "store": "https://www.b2b.copagloja.com.br",
+    "category": "pokemon"
+  }
+]
