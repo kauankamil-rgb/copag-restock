@@ -68,7 +68,10 @@ Campos: `id` (chave do estado, não mude depois), `label` (aparece no alerta), `
 
 ### Adapters disponíveis
 
-- **`vtex`** — qualquer loja VTEX, via API pública de Intelligent Search. Traz a quantidade real.
+- **`vtex`** — lojas VTEX com Intelligent Search exposto. Campo `category` = slug da URL.
+- **`vtex_catalog`** — lojas VTEX sem Intelligent Search, via `catalog_system` clássico.
+  Campo `category_id` = id numérico da categoria. Para descobrir:
+  `curl -s https://LOJA/api/catalog_system/pub/category/tree/3 | grep -i pokemon`
 - **`shopify`** — qualquer loja Shopify, via `products.json`. O Shopify só expõe o booleano
   `available`, então a quantidade aparece como 1/0 — suficiente para detectar a virada.
 
@@ -105,7 +108,8 @@ de tentar escrever num filesystem read-only.
   ou disparada em duplicidade. Restocks curtos podem escapar nos dois.
 - Restocks observados nessa loja duraram **menos de 7 minutos**. Dimensione o intervalo
   com isso em mente.
-- A loja reporta `10000` como quantidade para itens em estoque — é um teto do VTEX,
-  não o estoque literal. O que importa aqui é `0` vs `> 0`.
+- A VTEX reporta `10000` (B2B) ou `99999` (loja padrão) como quantidade de itens em estoque:
+  é um teto, não o estoque literal. Por isso o alerta mostra "Disponível: sim" acima de 500 e
+  só exibe número quando o estoque é baixo de verdade.
 - O estoque é o da vitrine pública. Preço e disponibilidade finais podem variar conforme
   a política comercial da sua conta B2B depois do login.

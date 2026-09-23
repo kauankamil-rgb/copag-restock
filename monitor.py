@@ -23,6 +23,18 @@ UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/
 MAX_ALERTS_POR_ALVO = 15
 
 
+def nome_do_item(prod, item):
+    """Nome exibido no alerta.
+
+    O `nameComplete` da VTEX so agrega quando o produto tem variantes; com item
+    unico ele repete o titulo, virando "Deck X Deck X" na mensagem.
+    """
+    base = prod["productName"]
+    if len(prod.get("items", [])) <= 1:
+        return base
+    return item.get("nameComplete") or base
+
+
 def get_json(url, tries=3):
     for attempt in range(tries):
         try:
@@ -59,7 +71,7 @@ def adapter_vtex(t):
                 qty = max([o.get("AvailableQuantity", 0) for o in offers] or [0])
                 price = next((o.get("Price") for o in offers if o.get("Price")), None)
                 out[item["itemId"]] = {
-                    "name": item.get("nameComplete") or prod["productName"],
+                    "name": nome_do_item(prod, item),
                     "qty": qty,
                     "price": price,
                     "url": store + prod.get("link", ""),
@@ -107,7 +119,42 @@ def adapter_shopify(t):
     return out
 
 
-ADAPTERS = {"vtex": adapter_vtex, "shopify": adapter_shopify}
+def adapter_vtex_catalog(t):
+    """Lojas VTEX sem Intelligent Search exposto, via catalog_system classico.
+
+    Filtra por id numerico de categoria (fq=C:/<id>/). O total vem no header
+    `resources`, no formato "0-49/26".
+    """
+    store = t["store"].rstrip("/")
+    cat = t["category_id"]
+    out, passo, inicio = {}, 50, 0
+    while True:
+        qs = urllib.parse.urlencode({"fq": "C:/%s/" % cat, "_from": inicio, "_to": inicio + passo - 1})
+        url = "%s/api/catalog_system/pub/products/search?%s" % (store, qs)
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            produtos = json.loads(resp.read().decode("utf-8"))
+            faixa = resp.headers.get("resources", "")
+        for prod in produtos:
+            for item in prod.get("items", []):
+                offers = [s.get("commertialOffer", {}) for s in item.get("sellers", [])]
+                qty = max([o.get("AvailableQuantity", 0) for o in offers] or [0])
+                price = next((o.get("Price") for o in offers if o.get("Price")), None)
+                out[item["itemId"]] = {
+                    "name": nome_do_item(prod, item),
+                    "qty": qty,
+                    "price": price,
+                    "url": prod.get("link") or "%s/%s/p" % (store, prod.get("linkText", "")),
+                    "cur": t.get("currency", "R$"),
+                }
+        total = int(faixa.split("/")[-1]) if "/" in faixa else len(produtos)
+        inicio += passo
+        if not produtos or inicio >= total:
+            break
+    return out
+
+
+ADAPTERS = {"vtex": adapter_vtex, "vtex_catalog": adapter_vtex_catalog, "shopify": adapter_shopify}
 
 
 # --------------------------------------------------------------------------
@@ -119,6 +166,10 @@ def load_targets():
         if t.get("adapter") not in ADAPTERS:
             raise SystemExit("alvo '%s': adapter '%s' desconhecido (use: %s)"
                              % (t.get("id"), t.get("adapter"), ", ".join(ADAPTERS)))
+        exigido = {"vtex": "category", "vtex_catalog": "category_id", "shopify": "store"}[t["adapter"]]
+        if not t.get(exigido):
+            raise SystemExit("alvo '%s': adapter '%s' exige o campo '%s'"
+                             % (t["id"], t["adapter"], exigido))
     return [t for t in alvos if t.get("enabled", True)]
 
 
@@ -255,10 +306,11 @@ def run(alvos, dry_run=False, listar=False):
         else:
             for tag, grupo in (("🔥 VOLTOU AO ESTOQUE", restock), ("🆕 PRODUTO NOVO DISPONÍVEL", novos)):
                 for sku, d in grupo[:MAX_ALERTS_POR_ALVO]:
-                    qtd = "%s un." % d["qty"] if d["qty"] > 1 else "sim"
-                    msg = ("%s\n\n<b>%s</b>\n<i>%s</i>\n\nPreço: <b>%s</b>\nDisponível: %s\n\n"
+                    # 10000/99999 sao tetos da VTEX, nao estoque real: nao mostrar como numero.
+                    qtd = "sim" if d["qty"] >= 500 else "%s un." % d["qty"]
+                    msg = ("%s — <b>%s</b>\n\n%s\n\nPreço: <b>%s</b>\nDisponível: %s\n\n"
                            '<a href="%s">Abrir na loja</a>'
-                           % (tag, d["name"], label, money(d["price"], d["cur"]), qtd, d["url"]))
+                           % (tag, label, d["name"], money(d["price"], d["cur"]), qtd, d["url"]))
                     log.append("  ALERTA: %s | %s" % (tag, d["name"]))
                     if not dry_run:
                         send_telegram(msg)

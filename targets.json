@@ -1,9 +1,16 @@
 [
   {
     "id": "copag-pokemon",
-    "label": "Copag B2B — Pokémon",
+    "label": "COPAG B2B",
     "adapter": "vtex",
     "store": "https://www.b2b.copagloja.com.br",
     "category": "pokemon"
+  },
+  {
+    "id": "copag-padrao-pokemon",
+    "label": "COPAG PADRÃO",
+    "adapter": "vtex_catalog",
+    "store": "https://www.copagloja.com.br",
+    "category_id": 35741
   }
 ]
