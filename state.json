@@ -188,6 +188,11 @@
         "qty": 10000,
         "price": 13.99
       },
+      "2574": {
+        "name": "Blister Triplo Pokémon ME05 Escuridão Absoluta",
+        "qty": 10000,
+        "price": 42.99
+      },
       "2575": {
         "name": "Blister Quadrúplo Pokémon ME05 Escuridão Absoluta",
         "qty": 10000,
@@ -210,7 +215,7 @@
       },
       "2602": {
         "name": "Pokémon Celebração de 30 Anos - Blister Duplo com Moeda",
-        "qty": 10000,
+        "qty": 0,
         "price": 69.99
       },
       "2603": {
@@ -220,7 +225,7 @@
       },
       "2604": {
         "name": "Pokémon Celebração de 30 anos – Blister Triplo com Adesivo Exeggutor",
-        "qty": 10000,
+        "qty": 0,
         "price": 99.99
       },
       "2605": {
