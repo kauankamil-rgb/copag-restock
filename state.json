@@ -46,11 +46,6 @@
         "qty": 0,
         "price": 179.99
       },
-      "2553": {
-        "name": "Deck Batalha de Liga Pokémon Mega Lucario EX",
-        "qty": 1,
-        "price": 139.99
-      },
       "2555": {
         "name": "Box Pokémon Coleção Mega Luar Mega Gengar",
         "qty": 0,
@@ -128,7 +123,7 @@
       },
       "2609": {
         "name": "Pokémon Celebração de 30 anos – Box Ex Sylveon",
-        "qty": 10,
+        "qty": 0,
         "price": 169.99
       }
     },
@@ -215,7 +210,7 @@
       },
       "2602": {
         "name": "Pokémon Celebração de 30 Anos - Blister Duplo com Moeda",
-        "qty": 0,
+        "qty": 10000,
         "price": 69.99
       },
       "2603": {
@@ -225,7 +220,7 @@
       },
       "2604": {
         "name": "Pokémon Celebração de 30 anos – Blister Triplo com Adesivo Exeggutor",
-        "qty": 0,
+        "qty": 10000,
         "price": 99.99
       },
       "2605": {
