@@ -46,6 +46,11 @@
         "qty": 0,
         "price": 179.99
       },
+      "2553": {
+        "name": "Deck Batalha de Liga Pokémon Mega Lucario EX",
+        "qty": 1,
+        "price": 139.99
+      },
       "2555": {
         "name": "Box Pokémon Coleção Mega Luar Mega Gengar",
         "qty": 0,
@@ -173,11 +178,6 @@
         "qty": 0,
         "price": 179.99
       },
-      "2553": {
-        "name": "Deck Batalha de Liga Pokémon Mega Lucario EX",
-        "qty": 10000,
-        "price": 139.99
-      },
       "2555": {
         "name": "Box Pokémon Coleção Mega Luar Mega Gengar",
         "qty": 0,
@@ -192,11 +192,6 @@
         "name": "Blister Unitário Pokémon ME05 Escuridão Absoluta",
         "qty": 10000,
         "price": 13.99
-      },
-      "2574": {
-        "name": "Blister Triplo Pokémon ME05 Escuridão Absoluta",
-        "qty": 10000,
-        "price": 42.99
       },
       "2575": {
         "name": "Blister Quadrúplo Pokémon ME05 Escuridão Absoluta",
