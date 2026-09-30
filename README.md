@@ -74,6 +74,19 @@ guarda os alvos separadamente e um alvo que falha não derruba nem apaga os outr
 ]
 ```
 
+### Filtrar o que notifica
+
+O campo `notificar` é uma lista de trechos de nome; só o produto que contém um deles gera
+mensagem no Telegram. Ignora acento e caixa (`30 anos` casa `Celebração de 30 Anos`).
+
+```json
+{ "id": "copag-pokemon", "...": "...", "notificar": ["30 anos"] }
+```
+
+O filtro corta **só o envio**. O rastreamento, o `--list` e o log de `--eventos` seguem
+completos, então trocar ou remover o filtro não exige recomeçar o estado. Sem o campo,
+notifica tudo.
+
 Campos: `id` (chave do estado, não mude depois), `label` (aparece no alerta), `adapter`,
 `store`, e `category` (VTEX) ou `collection` (Shopify, opcional — sem ela varre a loja toda).
 `currency` é o símbolo exibido no preço (padrão `R$`) e `enabled: false` desliga um alvo sem removê-lo.

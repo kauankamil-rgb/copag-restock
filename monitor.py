@@ -14,6 +14,7 @@ import sys
 import time
 import urllib.error
 import urllib.parse
+import unicodedata
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +22,25 @@ STATE_FILE = os.path.join(HERE, "state.json")
 TARGETS_FILE = os.path.join(HERE, "targets.json")
 UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36"
 MAX_ALERTS_POR_ALVO = 15
+
+
+def _sem_acento(txt):
+    return "".join(c for c in unicodedata.normalize("NFD", txt.lower())
+                   if unicodedata.category(c) != "Mn")
+
+
+def notifica(t, nome):
+    """Decide se este produto gera mensagem no Telegram.
+
+    Sem `notificar` no alvo, tudo notifica. Com a lista, so notifica o nome que
+    contem um dos trechos (ignorando acento e caixa). O rastreamento e o log de
+    eventos seguem completos de qualquer forma: o filtro corta so o envio.
+    """
+    padroes = t.get("notificar")
+    if not padroes:
+        return True
+    alvo = _sem_acento(nome)
+    return any(_sem_acento(p) in alvo for p in padroes)
 
 
 def nome_do_item(prod, item):
@@ -359,11 +379,13 @@ def run(alvos, dry_run=False, listar=False):
                     msg = ("%s — <b>%s</b>\n\n%s\n\nPreço: <b>%s</b>\nDisponível: %s\n\n"
                            '<a href="%s">Abrir na loja</a>'
                            % (tag, label, d["name"], money(d["price"], d["cur"]), qtd, d["url"]))
-                    log.append("  ALERTA: %s | %s" % (tag, d["name"]))
+                    manda = notifica(t, d["name"])
+                    log.append("  %s %s | %s" % ("ALERTA:" if manda else "silenciado:", tag, d["name"]))
                     if not dry_run:
                         registra_evento("voltou" if grupo is restock else "novo",
                                         label, d["name"], d["qty"], d["price"])
-                        send_telegram(msg)
+                        if manda:
+                            send_telegram(msg)
 
         estados[t["id"]] = {s: {"name": d["name"], "qty": d["qty"], "price": d["price"]}
                             for s, d in atual.items()}

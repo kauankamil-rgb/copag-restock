@@ -4,13 +4,15 @@
     "label": "COPAG B2B",
     "adapter": "vtex",
     "store": "https://www.b2b.copagloja.com.br",
-    "category": "pokemon"
+    "category": "pokemon",
+    "notificar": ["30 anos"]
   },
   {
     "id": "copag-padrao-pokemon",
     "label": "COPAG PADRÃO",
     "adapter": "vtex_catalog",
     "store": "https://www.copagloja.com.br",
-    "category_id": 35741
+    "category_id": 35741,
+    "notificar": ["30 anos"]
   }
 ]
