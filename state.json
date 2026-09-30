@@ -58,7 +58,7 @@
       },
       "2573": {
         "name": "Blister Unitário Pokémon ME05 Escuridão Absoluta",
-        "qty": 10,
+        "qty": 0,
         "price": 13.99
       },
       "2574": {
@@ -103,6 +103,11 @@
         "qty": 0,
         "price": 349.99
       },
+      "2483": {
+        "name": "Deck Batalha De Liga Pokémon Mewtwo Ex",
+        "qty": 0,
+        "price": 139.99
+      },
       "2539": {
         "name": "Box Display Pokémon ME04 Caos Ascendente",
         "qty": 0,
@@ -145,7 +150,7 @@
       },
       "2573": {
         "name": "Blister Unitário Pokémon ME05 Escuridão Absoluta",
-        "qty": 10000,
+        "qty": 0,
         "price": 13.99
       },
       "2575": {
