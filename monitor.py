@@ -239,6 +239,50 @@ def save_state(estados):
     _write_raw({"targets": {k: dict(sorted(v.items())) for k, v in sorted(estados.items())}})
 
 
+EVENTS_KEY = os.environ.get("EVENTS_KEY", "restock:eventos")
+
+
+def le_eventos(limite=50):
+    """Le o log de eventos, do mais recente para o mais antigo."""
+    if usando_redis():
+        res = _redis("/lrange/%s/0/%d" % (urllib.parse.quote(EVENTS_KEY), limite - 1))
+        linhas = res or []
+    else:
+        try:
+            with open(os.path.join(HERE, "eventos.jsonl"), encoding="utf-8") as fh:
+                linhas = list(reversed(fh.read().strip().split("\n")))[:limite]
+        except FileNotFoundError:
+            linhas = []
+    out = []
+    for l in linhas:
+        try:
+            out.append(json.loads(l))
+        except (json.JSONDecodeError, TypeError):
+            continue
+    return out
+
+
+def registra_evento(tipo, alvo, nome, qty, price):
+    """Empilha o evento num log append-only.
+
+    No Redis vira uma lista (LPUSH + LTRIM). Sem Redis vai para eventos.jsonl,
+    ao lado do state.json. Serve para reconstruir historico de reposicao, que o
+    snapshot sozinho nao guarda porque so registra o estado atual.
+    """
+    ev = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "tipo": tipo,
+          "alvo": alvo, "produto": nome, "qty": qty, "preco": price}
+    linha = json.dumps(ev, ensure_ascii=False)
+    try:
+        if usando_redis():
+            _redis("/lpush/%s/%s" % (urllib.parse.quote(EVENTS_KEY), urllib.parse.quote(linha)))
+            _redis("/ltrim/%s/0/499" % urllib.parse.quote(EVENTS_KEY))
+        else:
+            with open(os.path.join(HERE, "eventos.jsonl"), "a", encoding="utf-8") as fh:
+                fh.write(linha + "\n")
+    except Exception as err:  # noqa: BLE001 - log nunca deve derrubar o alerta
+        print("[aviso] falha ao registrar evento: %s" % err, file=sys.stderr)
+
+
 def send_telegram(text):
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     chat_id = os.environ.get("TELEGRAM_CHAT_ID")
@@ -301,6 +345,10 @@ def run(alvos, dry_run=False, listar=False):
                    % (label, len(atual), sum(1 for d in atual.values() if d["qty"] > 0),
                       len(restock), len(novos), len(zerou)))
 
+        if not dry_run:
+            for sku in zerou:
+                registra_evento("esgotou", label, prev[sku].get("name", sku), 0, prev[sku].get("price"))
+
         if first_run:
             log.append("  primeira execucao deste alvo: estado gravado, sem alertas")
         else:
@@ -313,6 +361,8 @@ def run(alvos, dry_run=False, listar=False):
                            % (tag, label, d["name"], money(d["price"], d["cur"]), qtd, d["url"]))
                     log.append("  ALERTA: %s | %s" % (tag, d["name"]))
                     if not dry_run:
+                        registra_evento("voltou" if grupo is restock else "novo",
+                                        label, d["name"], d["qty"], d["price"])
                         send_telegram(msg)
 
         estados[t["id"]] = {s: {"name": d["name"], "qty": d["qty"], "price": d["price"]}
@@ -329,12 +379,26 @@ def main():
     ap.add_argument("--list", action="store_true", help="imprime o estoque atual e sai")
     ap.add_argument("--test-alert", action="store_true", help="envia uma mensagem de teste no Telegram")
     ap.add_argument("--target", help="roda apenas o alvo com este id")
+    ap.add_argument("--eventos", nargs="?", const=50, type=int, metavar="N",
+                    help="mostra o historico de reposicoes e esgotamentos e sai")
     args = ap.parse_args()
 
     if args.test_alert:
         ok = send_telegram("✅ <b>Monitor de restock</b> conectado.")
         print("teste enviado" if ok else "falha no envio")
         return 0 if ok else 1
+
+    if args.eventos:
+        evs = le_eventos(args.eventos)
+        if not evs:
+            print("nenhum evento registrado ainda")
+            return 0
+        icone = {"voltou": "🔥 VOLTOU ", "novo": "🆕 NOVO   ", "esgotou": "   esgotou"}
+        for e in evs:
+            quando = e["ts"][:16].replace("T", " ")
+            print("%s  %s  %-14s %-46s %s" % (quando, icone.get(e["tipo"], e["tipo"]), e["alvo"],
+                                              e["produto"][:46], money(e.get("preco"))))
+        return 0
 
     alvos = load_targets()
     if args.target:
