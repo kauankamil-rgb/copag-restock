@@ -1,10 +1,12 @@
 name: Monitor estoque Copag B2B
 
+# O agendamento saiu daqui: o GitHub entregava uma checagem a cada ~5 HORAS, nao a
+# cada 5 min (medido em 88h: 23 execucoes de 1057 esperadas). Quem agenda agora e a
+# Vercel, a cada 60s. Este workflow fica como reserva manual, para o caso de a
+# Vercel cair. Ele usa o state.json do repo, que fica velho; ao rodar depois de
+# muito tempo pode disparar um lote de alertas de itens que ja estavam disponiveis.
 on:
-  schedule:
-    - cron: '*/5 * * * *'   # checagem a cada 5 min (mínimo do GitHub Actions)
-    - cron: '0 6 * * 1'     # heartbeat semanal: impede o GitHub de desativar o cron por inatividade
-  workflow_dispatch:         # permite rodar na mão pelo site
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,15 +22,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Checar estoque e alertar
-        if: github.event.schedule != '0 6 * * 1'
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: python3 monitor.py
-
-      - name: Heartbeat semanal
-        if: github.event.schedule == '0 6 * * 1'
-        run: date -u +"%Y-%m-%dT%H:%M:%SZ" > .heartbeat
 
       - name: Gravar mudanças de estoque
         run: |

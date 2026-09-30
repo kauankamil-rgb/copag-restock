@@ -8,10 +8,22 @@ pela API pública de Intelligent Search.
 
 ## Como funciona
 
-1. A cada 5 minutos o GitHub Actions consulta a API da categoria.
+Quem agenda é a **Vercel**, a cada 60 segundos, em `copag-restock.vercel.app/api/check`.
+O GitHub Actions ficou só como reserva manual — ele prometia 5 minutos e entregava ~5 horas
+(23 execuções em 88h, de 1057 esperadas), então o agendamento foi removido de lá.
+
+1. A cada minuto a Vercel invoca `/api/check`, que consulta a API de cada alvo.
 2. Compara o resultado com o snapshot anterior (`state.json`, versionado no repo).
-3. Se um SKU passou de `qty 0` → `qty > 0`, dispara uma mensagem no Telegram com nome, preço e link direto.
-4. Grava o novo snapshot. Commit só acontece quando o estoque muda de fato.
+3. Se um SKU passou de `qty 0` → `qty > 0`, dispara uma mensagem no Telegram com a loja em
+   destaque, nome, preço e link direto.
+4. Grava o novo snapshot e registra o evento no log append-only.
+
+Histórico de reposições e esgotamentos:
+
+```bash
+python3 monitor.py --eventos        # últimos 50
+python3 monitor.py --eventos 200
+```
 
 A primeira execução apenas grava o estado inicial, sem alertar.
 
@@ -78,7 +90,7 @@ Campos: `id` (chave do estado, não mude depois), `label` (aparece no alerta), `
 Loja em outra plataforma precisa de um adapter novo: uma função que recebe o alvo e devolve
 `{sku: {name, qty, price, url, cur}}`. O resto do fluxo não muda.
 
-## Rodar na Vercel (1 min, precisa de plano Pro)
+## Como está montado na Vercel
 
 O GitHub Actions checa a cada 5 min e atrasa em horário de pico. No plano Pro da Vercel
 o cron roda **a cada minuto, dentro do minuto marcado**. O mesmo `monitor.py` serve os dois:
@@ -86,7 +98,17 @@ o cron roda **a cada minuto, dentro do minuto marcado**. O mesmo `monitor.py` se
 
 Como a função roda sem disco, o snapshot sai do `state.json` e vai para o Redis.
 
-1. Crie o projeto apontando para este repo (framework: *Other*).
+O projeto **não está conectado ao Git** — foi criado por `vercel deploy` a partir da pasta
+local, porque a conta Vercel está ligada a outro GitHub que não vê este repo. Para publicar
+uma mudança de código:
+
+```bash
+npx vercel deploy --prod --yes --scope davirf3lix-gmailcoms-projects
+```
+
+Passos da montagem, se precisar refazer:
+
+1. `vercel link` cria o projeto (framework: *Other*, sem build).
 2. Adicione a integração **Upstash Redis** pelo marketplace da Vercel — ela injeta
    `UPSTASH_REDIS_REST_URL` e `UPSTASH_REDIS_REST_TOKEN` sozinha.
 3. Cadastre as variáveis de ambiente:
@@ -94,8 +116,12 @@ Como a função roda sem disco, o snapshot sai do `state.json` e vai para o Redi
    - `CRON_SECRET` — string aleatória de 16+ caracteres. A Vercel a envia como
      `Authorization: Bearer <valor>` e o endpoint recusa qualquer requisição sem ela.
 4. Deploy. O `vercel.json` já registra o cron `* * * * *` em `/api/check`.
-5. **Desligue o cron do GitHub Actions** (deixe só `workflow_dispatch`), senão os dois
-   rodam em paralelo com estados separados e você recebe cada alerta duas vezes.
+5. Deploy de produção. O `vercel.json` registra o cron `* * * * *`.
+
+A integração do Upstash injeta `KV_REST_API_URL`/`KV_REST_API_TOKEN`, não
+`UPSTASH_REDIS_REST_*` — o código aceita os dois. A Deployment Protection da conta bloqueia
+a URL longa do deployment com 302; o alias `copag-restock.vercel.app` passa, e é ele que o
+cron usa.
 
 Sem as variáveis do Upstash o endpoint responde 500 com a mensagem do que falta, em vez
 de tentar escrever num filesystem read-only.
